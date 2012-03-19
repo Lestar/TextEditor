@@ -19,7 +19,14 @@ interface EditorEventListener
 	void exit();
 }
 
-class SimpleFrame extends JFrame implements EditorEventListener
+interface EditorKeyEventListener
+{
+	void Pressed(KeyEvent event);
+	void Typed(KeyEvent event);
+	void Released(KeyEvent event);
+}
+
+class SimpleFrame extends JFrame implements EditorEventListener, EditorKeyEventListener
 {
 	private static final long serialVersionUID = 1L;
 	public int scr_w;
@@ -27,7 +34,15 @@ class SimpleFrame extends JFrame implements EditorEventListener
 	
 	private MyPanelTextArea panelText;
 	private MyPanelButtonArea panelButton;
-	
+	/*-----*/
+	boolean ctrlXPressed = false;
+	boolean ctrlVPressed = false;
+	boolean backspacePressed = false;
+	boolean deletePressed = false;
+	String deletedText ="";
+	String cuttedText = "";
+	int pastedTextPosition = 0;
+	/*-----*/
 	public SimpleFrame()
     {
 		Toolkit kit = Toolkit.getDefaultToolkit();
@@ -37,12 +52,14 @@ class SimpleFrame extends JFrame implements EditorEventListener
 		setSize(scr_w/2,scr_h/2);
 		setTitle("Text Editor");
 		
-		panelText = new MyPanelTextArea(this);
+		panelText = new MyPanelTextArea(this, this);
 		panelButton = new MyPanelButtonArea(this);
 		
 		setLayout(new BorderLayout());
 		add(panelButton, BorderLayout.SOUTH);
 		add(panelText, BorderLayout.NORTH);
+		
+		
     }
 	
 
@@ -290,6 +307,162 @@ class SimpleFrame extends JFrame implements EditorEventListener
 		}
 			
 	}
+	
+	public void Pressed(KeyEvent event)
+	{
+		if(event.getKeyCode() == KeyEvent.VK_Z && event.isControlDown())   //--- good!!!!!!!!
+		{
+			panelText.newGetString();
+			panelText.isChoosen = true;
+			return;
+		}
+		if(event.getKeyCode() == KeyEvent.VK_Y && event.isControlDown())  //--- good!!!!!!!!!!
+		{
+			panelText.newRestoreString();
+			panelText.isChoosen = true;
+			return;
+		}
+		
+		if(event.getKeyCode() == KeyEvent.VK_X && event.isControlDown())  //--- good!!!!!!!!!!
+		{
+			if (panelText.text.getSelectedText() != null)
+			{
+				ctrlXPressed = true;
+				cuttedText = panelText.text.getSelectedText();
+			}
+		}		
+		
+		if(event.getKeyCode() == KeyEvent.VK_V && event.isControlDown())  //--- good!!!!!!!!!!
+		{
+			ctrlVPressed = true;
+			pastedTextPosition = panelText.text.getCaretPosition();
+		}
+		
+		if(event.getKeyCode() == KeyEvent.VK_BACK_SPACE) //--- good!!!!!!!!!!!
+		{
+			if(panelText.text.getSelectedText() == null)
+			{
+				String str;
+				panelText.isChoosen = true;
+				str = panelText.text.getText().substring(panelText.text.getCaretPosition() - 1, panelText.text.getCaretPosition());
+				panelText.newPutString(str,panelText.text.getCaretPosition(),MyPanelTextArea.action.SUB);
+			}
+			else
+			{
+				deletedText = panelText.text.getSelectedText();
+				backspacePressed = true;
+			}
+			return;
+		}
+		if(event.getKeyCode() == KeyEvent.VK_DELETE)//--- good!!!!!!!!!
+		{
+			if(panelText.text.getSelectedText() == null)
+			{
+				String str;
+				panelText.isChoosen = true;
+				if(panelText.text.getText().length() == panelText.text.getCaretPosition()) return;
+				str = panelText.text.getText().substring(panelText.text.getCaretPosition(),panelText.text.getCaretPosition()+1);
+				panelText.newPutString(str,panelText.text.getCaretPosition(),MyPanelTextArea.action.SUB);
+			}
+			else
+			{
+				deletedText = panelText.text.getSelectedText();
+				deletePressed = true;
+			}
+		}
+		
+		if(event.getKeyCode() == KeyEvent.VK_SPACE)
+		{
+			panelText.isChoosen = true;
+			String str;
+			str = event.getKeyChar() + "";
+			panelText.newPutString(str,panelText.text.getCaretPosition(),MyPanelTextArea.action.ADD);
+		}
+	}
+	
+	public void Typed(KeyEvent event)
+	{
+		if(event.isControlDown()) return;
+		if(event.isAltDown()) return;
+		if(Character.isLetterOrDigit(event.getKeyChar()))
+		{
+			if(panelText.text.getSelectedText() != null)
+			{
+				String str;
+				str = panelText.text.getSelectedText();
+				panelText.newPutString(str,panelText.text.getCaretPosition(),MyPanelTextArea.action.SUB);
+			}
+			panelText.isChoosen = true;
+			String str;
+			str = event.getKeyChar() + "";
+			panelText.newPutString(str,panelText.text.getCaretPosition(),MyPanelTextArea.action.ADD);
+		}	
+		if(event.getKeyCode() == KeyEvent.VK_SPACE)
+		{
+			panelText.isChoosen = true;
+			String str;
+			str = event.getKeyChar() + "";
+			panelText.newPutString(str,panelText.text.getCaretPosition(),MyPanelTextArea.action.ADD);
+		}
+		if(event.getKeyCode() == KeyEvent.VK_ALPHANUMERIC)
+		{
+			panelText.isChoosen = true;
+			String str;
+			str = event.getKeyChar() + "";
+			panelText.newPutString(str,panelText.text.getCaretPosition(),MyPanelTextArea.action.ADD);
+		}
+	}
+	
+	public void Released(KeyEvent event)
+	{
+		if(ctrlXPressed)
+		{
+			panelText.newPutString(cuttedText, panelText.text.getCaretPosition(), MyPanelTextArea.action.SUB);
+			panelText.isChoosen = true;
+	        ctrlXPressed = false;
+	        cuttedText = "";
+			return;
+		}
+		if(ctrlVPressed)
+		{
+			String clipboardText;
+	        Transferable trans = Toolkit.getDefaultToolkit().getSystemClipboard().getContents(null);
+	 
+	        try 
+	        {
+	            if (trans != null && trans.isDataFlavorSupported(DataFlavor.stringFlavor)) 
+	            {
+	                clipboardText = (String) trans.getTransferData(DataFlavor.stringFlavor);
+	                panelText.newPutString(clipboardText, pastedTextPosition, MyPanelTextArea.action.ADD);
+	            }
+	        } 
+	        catch (Exception e) 
+	        {
+	            e.printStackTrace();
+	        }
+			
+	        panelText.isChoosen = true;
+	        ctrlVPressed = false;
+	        pastedTextPosition = 0;
+			return;
+		}
+		if(backspacePressed)
+		{
+			panelText.newPutString(deletedText, panelText.text.getCaretPosition(), MyPanelTextArea.action.SUB);
+			panelText.isChoosen = true;
+	        backspacePressed = false;
+	        deletedText = "";
+			return;
+		}
+		if(deletePressed)
+		{
+			panelText.newPutString(deletedText, panelText.text.getCaretPosition(), MyPanelTextArea.action.SUB);
+			panelText.isChoosen = true;
+	        deletePressed = false;
+	        deletedText = "";
+			return;
+		}
+	}
 }
 
 class MyPanelButtonArea extends JPanel
@@ -354,14 +527,31 @@ class MyPanelTextArea extends JPanel
 	public ArrayList<actionText> actionList = new ArrayList<actionText>();
 	public enum action {ADD, SUB};
 	
-	public MyPanelTextArea(SimpleFrame frame)
+	public MyPanelTextArea(SimpleFrame frame, final EditorKeyEventListener listener )
 	{
 		text = new JTextArea(frame.scr_h/40,frame.scr_w/23);
-		text.addKeyListener(new ChangeTextListener());
+		text.addKeyListener(new KeyListener()
+		{
+			public void keyPressed(KeyEvent e)
+			{
+				listener.Pressed(e);
+			}
+			
+			public void keyTyped(KeyEvent e)
+			{
+				listener.Typed(e);
+			}
+			
+			public void keyReleased(KeyEvent e)
+			{
+				listener.Released(e);
+			}
+		});
 
 		scroll = new JScrollPane(text);
 		add(scroll);
 	}
+	
 	public void newPutString(String str, int position, action type)
 	{
 		if(indexAction > 0)
@@ -498,159 +688,6 @@ class MyPanelTextArea extends JPanel
 		}
 	}
 	
-	class ChangeTextListener implements KeyListener
-	{
-		boolean ctrlXPressed = false;
-		boolean ctrlVPressed = false;
-		boolean backspacePressed = false;
-		boolean deletePressed = false;
-		String deletedText ="";
-		String cuttedText = "";
-		int pastedTextPosition = 0;
-		
-		public void keyPressed(KeyEvent event) 
-		{			
-			if(event.getKeyCode() == KeyEvent.VK_Z && event.isControlDown())   //--- good!!!!!!!!
-			{
-				newGetString();
-				isChoosen = true;
-				return;
-			}
-			if(event.getKeyCode() == KeyEvent.VK_Y && event.isControlDown())  //--- good!!!!!!!!!!
-			{
-				newRestoreString();
-				isChoosen = true;
-				return;
-			}
-			
-			if(event.getKeyCode() == KeyEvent.VK_X && event.isControlDown())  //--- good!!!!!!!!!!
-			{
-				if (text.getSelectedText() != null)
-				{
-					ctrlXPressed = true;
-					cuttedText = text.getSelectedText();
-				}
-			}		
-			
-			if(event.getKeyCode() == KeyEvent.VK_V && event.isControlDown())  //--- good!!!!!!!!!!
-			{
-				ctrlVPressed = true;
-				pastedTextPosition = text.getCaretPosition();
-			}
-			
-			if(event.getKeyCode() == KeyEvent.VK_BACK_SPACE) //--- good!!!!!!!!!!!
-			{
-				if(text.getSelectedText() == null)
-				{
-					String str;
-					isChoosen = true;
-					str = text.getText().substring(text.getCaretPosition() - 1, text.getCaretPosition());
-					newPutString(str,text.getCaretPosition(),action.SUB);
-				}
-				else
-				{
-					deletedText = text.getSelectedText();
-					backspacePressed = true;
-				}
-				return;
-			}
-			if(event.getKeyCode() == KeyEvent.VK_DELETE)//--- good, but write script for selected text
-			{
-				if(text.getSelectedText() == null)
-				{
-					String str;
-					isChoosen = true;
-					if(text.getText().length() == text.getCaretPosition()) return;
-					str = text.getText().substring(text.getCaretPosition(),text.getCaretPosition()+1);
-					newPutString(str,text.getCaretPosition(),action.SUB);
-				}
-				else
-				{
-					deletedText = text.getSelectedText();
-					deletePressed = true;
-				}
-			}
-			
-			if(event.getKeyCode() == KeyEvent.VK_SPACE)
-			{
-				isChoosen = true;
-				String str;
-				str = event.getKeyChar() + "";
-				newPutString(str,text.getCaretPosition(),action.ADD);
-			}
-		}
-		
-		public void keyTyped(KeyEvent event) 
-		{
-			if(event.isControlDown()) return;
-			if(event.isAltDown()) return;
-			if(Character.isLetterOrDigit(event.getKeyChar()))
-			{
-				isChoosen = true;
-				String str;
-				str = event.getKeyChar() + "";
-				newPutString(str,text.getCaretPosition(),action.ADD);
-			}	
-			if(event.getKeyCode() == KeyEvent.VK_SPACE)
-			{
-				isChoosen = true;
-				String str;
-				str = event.getKeyChar() + "";
-				newPutString(str,text.getCaretPosition(),action.ADD);
-			}
-		}
-		
-		public void keyReleased(KeyEvent event) 
-		{
-				if(ctrlXPressed)
-				{
-					newPutString(cuttedText, text.getCaretPosition(), action.SUB);
-					isChoosen = true;
-			        ctrlXPressed = false;
-			        cuttedText = "";
-					return;
-				}
-				if(ctrlVPressed)
-				{
-					String clipboardText;
-			        Transferable trans = Toolkit.getDefaultToolkit().getSystemClipboard().getContents(null);
-			 
-			        try 
-			        {
-			            if (trans != null && trans.isDataFlavorSupported(DataFlavor.stringFlavor)) 
-			            {
-			                clipboardText = (String) trans.getTransferData(DataFlavor.stringFlavor);
-			                newPutString(clipboardText, pastedTextPosition, action.ADD);
-			            }
-			        } 
-			        catch (Exception e) 
-			        {
-			            e.printStackTrace();
-			        }
-					
-			        isChoosen = true;
-			        ctrlVPressed = false;
-			        pastedTextPosition = 0;
-					return;
-				}
-				if(backspacePressed)
-				{
-					newPutString(deletedText, text.getCaretPosition(), action.SUB);
-			        isChoosen = true;
-			        backspacePressed = false;
-			        deletedText = "";
-					return;
-				}
-				if(deletePressed)
-				{
-					newPutString(deletedText, text.getCaretPosition(), action.SUB);
-			        isChoosen = true;
-			        deletePressed = false;
-			        deletedText = "";
-					return;
-				}
-		}
-	}
 }
 
 
@@ -659,13 +696,9 @@ public class Editor {
 
 	public static void main(String[] args) 
 	{
-		SimpleFrame[] arr = (SimpleFrame[]) new JFrame[3];
-		//arr[0] = new SimpleFrame();
-		//arr[1] = new JFrame();
 		SimpleFrame frame = new SimpleFrame();
 	    frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 	    frame.setVisible(true); 
-
 	}
 
 }
