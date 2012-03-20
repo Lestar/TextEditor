@@ -310,20 +310,20 @@ class SimpleFrame extends JFrame implements EditorEventListener, EditorKeyEventL
 	
 	public void Pressed(KeyEvent event)
 	{
-		if(event.getKeyCode() == KeyEvent.VK_Z && event.isControlDown())   //--- good!!!!!!!!
+		if(event.getKeyCode() == KeyEvent.VK_Z && event.isControlDown())
 		{
 			panelText.newGetString();
 			panelText.isChoosen = true;
 			return;
 		}
-		if(event.getKeyCode() == KeyEvent.VK_Y && event.isControlDown())  //--- good!!!!!!!!!!
+		if(event.getKeyCode() == KeyEvent.VK_Y && event.isControlDown())
 		{
 			panelText.newRestoreString();
 			panelText.isChoosen = true;
 			return;
 		}
 		
-		if(event.getKeyCode() == KeyEvent.VK_X && event.isControlDown())  //--- good!!!!!!!!!!
+		if(event.getKeyCode() == KeyEvent.VK_X && event.isControlDown())
 		{
 			if (panelText.text.getSelectedText() != null)
 			{
@@ -332,13 +332,13 @@ class SimpleFrame extends JFrame implements EditorEventListener, EditorKeyEventL
 			}
 		}		
 		
-		if(event.getKeyCode() == KeyEvent.VK_V && event.isControlDown())  //--- good!!!!!!!!!!
+		if(event.getKeyCode() == KeyEvent.VK_V && event.isControlDown())
 		{
 			ctrlVPressed = true;
 			pastedTextPosition = panelText.text.getCaretPosition();
 		}
 		
-		if(event.getKeyCode() == KeyEvent.VK_BACK_SPACE) //--- good!!!!!!!!!!!
+		if(event.getKeyCode() == KeyEvent.VK_BACK_SPACE)
 		{
 			if(panelText.text.getSelectedText() == null)
 			{
@@ -354,7 +354,7 @@ class SimpleFrame extends JFrame implements EditorEventListener, EditorKeyEventL
 			}
 			return;
 		}
-		if(event.getKeyCode() == KeyEvent.VK_DELETE)//--- good!!!!!!!!!
+		if(event.getKeyCode() == KeyEvent.VK_DELETE)
 		{
 			if(panelText.text.getSelectedText() == null)
 			{
@@ -370,21 +370,13 @@ class SimpleFrame extends JFrame implements EditorEventListener, EditorKeyEventL
 				deletePressed = true;
 			}
 		}
-		
-		if(event.getKeyCode() == KeyEvent.VK_SPACE)
-		{
-			panelText.isChoosen = true;
-			String str;
-			str = event.getKeyChar() + "";
-			panelText.newPutString(str,panelText.text.getCaretPosition(),MyPanelTextArea.action.ADD);
-		}
 	}
 	
 	public void Typed(KeyEvent event)
 	{
 		if(event.isControlDown()) return;
 		if(event.isAltDown()) return;
-		if(Character.isLetterOrDigit(event.getKeyChar()))
+		if(event.getKeyChar() != KeyEvent.CHAR_UNDEFINED)// | event.getKeyChar() == KeyEvent.VK_SPACE)
 		{
 			if(panelText.text.getSelectedText() != null)
 			{
@@ -397,20 +389,6 @@ class SimpleFrame extends JFrame implements EditorEventListener, EditorKeyEventL
 			str = event.getKeyChar() + "";
 			panelText.newPutString(str,panelText.text.getCaretPosition(),MyPanelTextArea.action.ADD);
 		}	
-		if(event.getKeyCode() == KeyEvent.VK_SPACE)
-		{
-			panelText.isChoosen = true;
-			String str;
-			str = event.getKeyChar() + "";
-			panelText.newPutString(str,panelText.text.getCaretPosition(),MyPanelTextArea.action.ADD);
-		}
-		if(event.getKeyCode() == KeyEvent.VK_ALPHANUMERIC)
-		{
-			panelText.isChoosen = true;
-			String str;
-			str = event.getKeyChar() + "";
-			panelText.newPutString(str,panelText.text.getCaretPosition(),MyPanelTextArea.action.ADD);
-		}
 	}
 	
 	public void Released(KeyEvent event)
@@ -624,6 +602,7 @@ class MyPanelTextArea extends JPanel
 		if(indexAction > actionList.size()-1) return;
 		actionText a = actionList.get(indexAction);
 		String temp = text.getText();
+		int caretaPosition = 0;
 		
 		if(a.actionType == action.ADD)
 		{
@@ -647,6 +626,7 @@ class MyPanelTextArea extends JPanel
 				tempString2 = temp.substring(a.position, temp.length());
 			}
 			text.setText(tempString1 + tempString2);
+			caretaPosition = tempString1.length();
 		}
 		if(a.actionType == action.SUB)
 		{
@@ -670,9 +650,10 @@ class MyPanelTextArea extends JPanel
 				tempString2 = temp.substring(a.position + a.str.length(), temp.length());
 				text.setText(tempString1 + tempString2);
 			}
+			caretaPosition = tempString1.length();
 		}
 		indexAction++;
-		text.setCaretPosition(a.position);
+		text.setCaretPosition(caretaPosition);
 	}
 
 	class actionText
