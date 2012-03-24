@@ -9,6 +9,7 @@ import java.awt.datatransfer.StringSelection;
 import java.awt.datatransfer.Transferable;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.event.WindowEvent;
@@ -71,17 +72,17 @@ interface EditorMouselistener
 	public void mouseReleased(MouseEvent e);
 }
 */
+
 class SimpleFrame extends JFrame implements EditorEventListener, EditorKeyEventListener, EditorWindowListener, ClipboardOwner
 {
 	private static final long serialVersionUID = 1L;
 	public int scr_w;
 	public int scr_h;
-	
 	private MyPanelTextArea panelText;
-	
 	boolean isFileNameSetted = false;
 	String fileName = "temp.tmp";
 	String tempFileName = "temp.tmp";
+	String temp = null;
 	int caretTextPosition = 0;
 	
 	public SimpleFrame()
@@ -416,28 +417,51 @@ class SimpleFrame extends JFrame implements EditorEventListener, EditorKeyEventL
 	}
 	public void cut()
 	{
+		int cp;
 		if (panelText.text.getSelectedText() != null)
 		{
-			panelText.newPutString(panelText.text.getSelectedText(), panelText.text.getSelectionStart(), MyPanelTextArea.action.SUB);
 			copy();
+			cp = panelText.text.getSelectionStart();
+			panelText.newPutString(panelText.text.getSelectedText(), panelText.text.getSelectionStart(), MyPanelTextArea.action.SUB);
 			if(panelText.text.getSelectionStart() == 0)
 			{
 				panelText.text.setText(panelText.text.getText().substring(panelText.text.getSelectedText().length(), panelText.text.getText().length()));
+				panelText.text.setCaretPosition(cp);
 				return;
 			}
 			if(panelText.text.getSelectionStart() > 0 && panelText.text.getSelectionStart() < panelText.text.getText().length())
 			{
 				panelText.text.setText(panelText.text.getText().substring(0, panelText.text.getSelectionStart()) + panelText.text.getText().substring(panelText.text.getSelectionStart() + panelText.text.getSelectedText().length(), panelText.text.getText().length()));
+				panelText.text.setCaretPosition(cp);
 				return;
 			}
 			if(panelText.text.getSelectionStart() == panelText.text.getText().length())
 			{
 				panelText.text.setText(panelText.text.getText().substring(0, panelText.text.getSelectionStart()));
+				panelText.text.setCaretPosition(cp);
 				return;
 			}
 		}
 	}
-	public void paste()
+	public void paste(KeyEvent event)
+	{
+		String clipboardText = null;
+        Transferable trans = Toolkit.getDefaultToolkit().getSystemClipboard().getContents(null);
+ 
+        try 
+        {
+            if (trans != null && trans.isDataFlavorSupported(DataFlavor.stringFlavor)) 
+            {
+                clipboardText = (String) trans.getTransferData(DataFlavor.stringFlavor);
+                panelText.newPutString(clipboardText, panelText.text.getCaretPosition(), MyPanelTextArea.action.ADD);
+            }
+        } 
+        catch (Exception e) 
+        {
+            e.printStackTrace();
+        }
+	}
+	public void paste(ActionEvent event)
 	{
 		String clipboardText = null;
         Transferable trans = Toolkit.getDefaultToolkit().getSystemClipboard().getContents(null);
@@ -486,18 +510,17 @@ class SimpleFrame extends JFrame implements EditorEventListener, EditorKeyEventL
 	}
 	public void backspace()
 	{
-		if(panelText.text.getSelectedText() == null)
-		{
-			String str;
-			str = panelText.text.getText().substring(panelText.text.getCaretPosition() - 1, panelText.text.getCaretPosition());
-			panelText.newPutString(str,panelText.text.getCaretPosition(),MyPanelTextArea.action.SUB);
-		}
-		else
+		if(panelText.text.getSelectedText() != null)
 		{
 			panelText.newPutString(panelText.text.getSelectedText(), panelText.text.getSelectionStart(), MyPanelTextArea.action.SUB);
 		}
+		else
+		{
+			String str;
+			str = panelText.text.getText().substring(panelText.text.getCaretPosition() - 1, panelText.text.getCaretPosition());
+			panelText.newPutString(str,panelText.text.getCaretPosition()-1 ,MyPanelTextArea.action.SUB);
+		}
 	}
-	
 	//text listener---
 	public void Pressed(KeyEvent event)
 	{
@@ -533,14 +556,13 @@ class SimpleFrame extends JFrame implements EditorEventListener, EditorKeyEventL
 		
 		if(event.getKeyCode() == KeyEvent.VK_V && event.isControlDown())
 		{
-			paste();
+			paste(event);
 		}
 		
 		if(event.getKeyCode() == KeyEvent.VK_C && event.isControlDown())
 		{
 			copy();
 		}
-		
 		if(event.getKeyCode() == KeyEvent.VK_BACK_SPACE)
 		{
 			backspace();
@@ -554,6 +576,8 @@ class SimpleFrame extends JFrame implements EditorEventListener, EditorKeyEventL
 	{
 		if(event.isControlDown()) return;
 		if(event.isAltDown()) return;
+		if(event.getKeyChar() == (char)127)	return;
+		if(event.getKeyChar() == '\b') return;
 		if(event.getKeyChar() != KeyEvent.CHAR_UNDEFINED)
 		{
 			if(panelText.text.getSelectedText() != null)
@@ -570,7 +594,7 @@ class SimpleFrame extends JFrame implements EditorEventListener, EditorKeyEventL
 	}
 	public void Released(KeyEvent event)
 	{
-
+		
 	}
 	//window listener---
 	public void Activated(WindowEvent e) 
@@ -644,6 +668,7 @@ class MyPanelTextArea extends JPanel
 				listener.Released(e);
 			}
 		});
+		
 		setLayout(new BorderLayout());
 		scroll = new JScrollPane(text);
 		add(scroll, BorderLayout.CENTER);
@@ -701,7 +726,6 @@ class MyPanelTextArea extends JPanel
 		if (indexAction <= 0) return;
 		actionText a = actionList.get(indexAction-1);
 		String temp = text.getText();
-		text.setCaretPosition(a.position);
 		indexAction--;
 		isChanged = true;
 		mainFrame.setTitle("Text Editor - " + mainFrame.fileName + " *");
@@ -710,16 +734,19 @@ class MyPanelTextArea extends JPanel
 			if(a.position == 0)
 			{
 				text.setText(temp.substring(a.str.length(), temp.length()));
+				text.setCaretPosition(a.position);
 				return;
 			}
 			if(a.position > 0 && a.position < temp.length())
 			{
 				text.setText(temp.substring(0, a.position) + temp.substring(a.position + a.str.length(), temp.length()));
+				text.setCaretPosition(a.position);
 				return;
 			}
 			if(a.position == temp.length())
 			{
 				text.setText(temp.substring(0, a.position));
+				text.setCaretPosition(a.position);
 				return;
 			}
 		}
@@ -728,16 +755,19 @@ class MyPanelTextArea extends JPanel
 			if(a.position == 0)
 			{
 				text.setText(a.str + temp);
+				text.setCaretPosition(a.position + a.str.length());
 				return;
 			}
 			if(a.position > 0 && a.position < temp.length())
 			{
 				text.setText(temp.substring(0, a.position) + a.str + temp.substring(a.position, temp.length()));
+				text.setCaretPosition(a.position + a.str.length());
 				return;
 			}
 			if(a.position == temp.length())
 			{
 				text.setText(temp+a.str);
+				text.setCaretPosition(a.position + a.str.length());
 				return;
 			}
 		}
@@ -748,10 +778,7 @@ class MyPanelTextArea extends JPanel
 		if(indexAction > actionList.size()-1) return;
 		actionText a = actionList.get(indexAction);
 		String temp = text.getText();
-		int caretaPosition = 0;
-		caretaPosition = a.position + a.str.length();
 		indexAction++;
-		text.setCaretPosition(caretaPosition);
 		isChanged = true;
 		mainFrame.setTitle("Text Editor - " + mainFrame.fileName + " *");
 		if(a.actionType == action.ADD)
@@ -759,16 +786,19 @@ class MyPanelTextArea extends JPanel
 			if(a.position == 0)
 			{
 				text.setText(a.str + temp);
+				text.setCaretPosition(a.position + a.str.length());
 				return;
 			}
 			if(a.position > 0 && a.position < temp.length())
 			{
 				text.setText(temp.substring(0, a.position));
+				text.setCaretPosition(a.position + a.str.length());
 				return;
 			}
 			if(a.position == temp.length())
 			{
 				text.setText(temp+a.str);
+				text.setCaretPosition(a.position + a.str.length());
 				return;
 			}
 		}
@@ -777,16 +807,19 @@ class MyPanelTextArea extends JPanel
 			if(a.position == 0)
 			{
 				text.setText(temp.substring(a.str.length(), temp.length()));
+				text.setCaretPosition(a.position);
 				return;
 			}
 			if(a.position > 0 && a.position < temp.length())
 			{
 				text.setText(temp.substring(0, a.position) + temp.substring(a.position + a.str.length(), temp.length()));
+				text.setCaretPosition(a.position);
 				return;
 			}
 			if(a.position == temp.length())
 			{
 				text.setText(temp.substring(0, a.position));
+				text.setCaretPosition(a.position);
 				return;
 			}
 		}
@@ -804,14 +837,10 @@ class MyPanelTextArea extends JPanel
 			actionType = type;
 		}
 	}
-
 }
-
-
 
 public class Editor 
 {
-
 	public static void main(String[] args) 
 	{
 		final SimpleFrame frame = new SimpleFrame();
@@ -878,6 +907,8 @@ public class Editor
 	    editMenu.add(paste);
 	    JMenuItem delete = new JMenuItem("Delete      Delete");
 	    editMenu.add(delete);
+	    JMenuItem selectAll = new JMenuItem("Select All     Ctlr+A");
+	    editMenu.add(selectAll);
 	    	        
 	    menuBar.add(fileMenu);
 	    menuBar.add(editMenu);
@@ -962,7 +993,7 @@ public class Editor
 	    {
 			public void actionPerformed(ActionEvent e)
 			{
-				frame.paste();
+				frame.paste(e);
 			}
 	    	
 	    });
@@ -970,10 +1001,20 @@ public class Editor
 	    {
 			public void actionPerformed(ActionEvent e)
 			{
+				frame.temp = frame.getMyPanelTextArea().text.getSelectedText();
+				frame.caretTextPosition = frame.getMyPanelTextArea().text.getCaretPosition() - 1;
 				frame.delete();
 			}
 	    	
 	    });
+	  	selectAll.addActionListener(new ActionListener()
+	  	{
+	  		public void actionPerformed(ActionEvent e) 
+	  		{
+				frame.getMyPanelTextArea().text.setSelectionStart(0);
+				frame.getMyPanelTextArea().text.setSelectionEnd(frame.getMyPanelTextArea().text.getText().length());
+			}
+	  		
+	  	});
 	}
-
 }
