@@ -1,14 +1,36 @@
-import java.awt.*;
-import java.io.*;
-import java.util.ArrayList;
-import javax.swing.*;
-
-//import MyPanelTextArea.action;
-
-import java.awt.event.*;
+//import java.awt.AWTEvent;
+import java.awt.BorderLayout;
+import java.awt.Dimension;
 import java.awt.Toolkit;
+import java.awt.datatransfer.Clipboard;
+import java.awt.datatransfer.ClipboardOwner;
 import java.awt.datatransfer.DataFlavor;
+import java.awt.datatransfer.StringSelection;
 import java.awt.datatransfer.Transferable;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
+import java.awt.event.WindowEvent;
+import java.awt.event.WindowListener;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.util.ArrayList;
+import javax.swing.JEditorPane;
+import javax.swing.JFileChooser;
+import javax.swing.JFrame;
+import javax.swing.JMenu;
+import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.Timer;
 
 
 interface EditorEventListener 
@@ -16,6 +38,7 @@ interface EditorEventListener
 	void fileNew();
 	void fileOpen();
 	void fileSave();
+	void fileSaveAs();
 	void exit();
 }
 
@@ -37,6 +60,7 @@ interface EditorWindowListener
 	public void Opened(WindowEvent e) ;
 }
 
+
 /*
 interface EditorMouselistener
 {
@@ -47,23 +71,18 @@ interface EditorMouselistener
 	public void mouseReleased(MouseEvent e);
 }
 */
-class SimpleFrame extends JFrame implements EditorEventListener, EditorKeyEventListener, EditorWindowListener
+class SimpleFrame extends JFrame implements EditorEventListener, EditorKeyEventListener, EditorWindowListener, ClipboardOwner
 {
 	private static final long serialVersionUID = 1L;
 	public int scr_w;
 	public int scr_h;
 	
 	private MyPanelTextArea panelText;
-	//private MyPanelButtonArea panelButton;
 	
-	boolean ctrlXPressed = false;
-	boolean ctrlVPressed = false;
-	boolean backspacePressed = false;
-	boolean deletePressed = false;
-	String deletedText ="";
-	String cuttedText = "";
-	String fileName = "temp.txt";
-	int pastedTextPosition = 0;
+	boolean isFileNameSetted = false;
+	String fileName = "temp.tmp";
+	String tempFileName = "temp.tmp";
+	int caretTextPosition = 0;
 	
 	public SimpleFrame()
     {
@@ -90,6 +109,8 @@ class SimpleFrame extends JFrame implements EditorEventListener, EditorKeyEventL
 	//button's listeners---
 	public void fileNew() 
 	{
+		isFileNameSetted = false;
+		this.setTitle("Text Editor");
 		JFileChooser chooser = new JFileChooser();
 		
 		if(panelText.isChanged) 
@@ -100,6 +121,7 @@ class SimpleFrame extends JFrame implements EditorEventListener, EditorKeyEventL
 			{
 				panelText.text.setText("");
 				panelText.isChanged = false;
+				this.setTitle("Text Editor");
 			}
 			
 			if(selection == JOptionPane.YES_OPTION)
@@ -125,6 +147,7 @@ class SimpleFrame extends JFrame implements EditorEventListener, EditorKeyEventL
 				}
 				panelText.text.setText("");
 				panelText.isChanged = false;
+				this.setTitle("Text Editor");
 			}
 		}
 		else
@@ -248,11 +271,59 @@ class SimpleFrame extends JFrame implements EditorEventListener, EditorKeyEventL
 				}
 			}
 		}
-			
+		isFileNameSetted = true;
+		this.setTitle("Text Editor" + fileName);
 	}
-	public void fileSave() 
+	public void fileSave()
 	{
-		File tempFile = new File(fileName);
+		File tempFile = new File(tempFileName);
+		if(tempFile.exists()) tempFile.delete();
+		if(!isFileNameSetted)
+		{
+			JFileChooser chooser = new JFileChooser();
+			
+			chooser.setCurrentDirectory(new File("."));
+				
+			int result = chooser.showSaveDialog(null);
+			if (result == JFileChooser.APPROVE_OPTION)
+			{
+				fileName = chooser.getSelectedFile().getPath();
+				PrintWriter out;
+				try 
+				{
+					out = new PrintWriter(new FileWriter(fileName));
+					String str = panelText.text.getText();
+					out.print(str);
+					out.close();
+					panelText.isChanged = false;
+				} 
+				catch (IOException e) 
+				{
+					e.printStackTrace();
+				}
+			}
+		}
+		else
+		{
+			PrintWriter out;
+			try 
+			{
+				out = new PrintWriter(new FileWriter(fileName));
+				String str = panelText.text.getText();
+				out.print(str);
+				out.close();
+			} 
+			catch (IOException e) 
+			{
+				e.printStackTrace();
+			}
+		}
+		isFileNameSetted = true;
+		this.setTitle("Text Editor - " + fileName);
+	}
+	public void fileSaveAs() 
+	{
+		File tempFile = new File(tempFileName);
 		if(tempFile.exists()) tempFile.delete();
 		JFileChooser chooser = new JFileChooser();
 		
@@ -269,13 +340,15 @@ class SimpleFrame extends JFrame implements EditorEventListener, EditorKeyEventL
 				String str = panelText.text.getText();
 				out.print(str);
 				out.close();
+				panelText.isChanged = false;
 			} 
 			catch (IOException e) 
 			{
 				e.printStackTrace();
 			}
 		}
-		panelText.isChanged = false;
+		isFileNameSetted = true;
+		this.setTitle("Text Editor - " + fileName);
 	}
 	public void exit() 
 	{
@@ -323,68 +396,158 @@ class SimpleFrame extends JFrame implements EditorEventListener, EditorKeyEventL
 		}
 			
 	}
+	//key actions---
+	public void undo()
+	{
+		panelText.newGetString();
+	}
+	public void redo()
+	{
+		panelText.newRestoreString();
+	}
+	public void copy()
+	{
+		if(panelText.text.getSelectedText() != null)
+		{
+			StringSelection stringSelection = new StringSelection( panelText.text.getSelectedText() );
+		    Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
+		    clipboard.setContents(stringSelection, (java.awt.datatransfer.ClipboardOwner) this );
+		}
+	}
+	public void cut()
+	{
+		if (panelText.text.getSelectedText() != null)
+		{
+			panelText.newPutString(panelText.text.getSelectedText(), panelText.text.getSelectionStart(), MyPanelTextArea.action.SUB);
+			copy();
+			if(panelText.text.getSelectionStart() == 0)
+			{
+				panelText.text.setText(panelText.text.getText().substring(panelText.text.getSelectedText().length(), panelText.text.getText().length()));
+				return;
+			}
+			if(panelText.text.getSelectionStart() > 0 && panelText.text.getSelectionStart() < panelText.text.getText().length())
+			{
+				panelText.text.setText(panelText.text.getText().substring(0, panelText.text.getSelectionStart()) + panelText.text.getText().substring(panelText.text.getSelectionStart() + panelText.text.getSelectedText().length(), panelText.text.getText().length()));
+				return;
+			}
+			if(panelText.text.getSelectionStart() == panelText.text.getText().length())
+			{
+				panelText.text.setText(panelText.text.getText().substring(0, panelText.text.getSelectionStart()));
+				return;
+			}
+		}
+	}
+	public void paste()
+	{
+		String clipboardText = null;
+        Transferable trans = Toolkit.getDefaultToolkit().getSystemClipboard().getContents(null);
+ 
+        try 
+        {
+            if (trans != null && trans.isDataFlavorSupported(DataFlavor.stringFlavor)) 
+            {
+                clipboardText = (String) trans.getTransferData(DataFlavor.stringFlavor);
+                panelText.newPutString(clipboardText, panelText.text.getCaretPosition(), MyPanelTextArea.action.ADD);
+            }
+        } 
+        catch (Exception e) 
+        {
+            e.printStackTrace();
+        }
+        if(panelText.text.getCaretPosition() == 0)
+		{
+        	panelText.text.setText(clipboardText + panelText.text.getText());
+        	return;
+		}
+		if(panelText.text.getCaretPosition() > 0 && panelText.text.getCaretPosition() < panelText.text.getText().length())
+		{
+			panelText.text.setText(panelText.text.getText().substring(0, panelText.text.getCaretPosition()) + clipboardText + panelText.text.getText().substring(panelText.text.getCaretPosition(),panelText.text.getText().length()));
+			return;
+		}
+		if(panelText.text.getCaretPosition() == panelText.text.getText().length())
+		{
+			panelText.text.setText(panelText.text.getText() + clipboardText);
+			return;
+		}
+	}
+	public void delete()
+	{
+		if(panelText.text.getSelectedText() == null)
+		{
+			String str;
+			if(panelText.text.getText().length() == panelText.text.getCaretPosition()) return;
+			str = panelText.text.getText().substring(panelText.text.getCaretPosition(),panelText.text.getCaretPosition()+1);
+			panelText.newPutString(str,panelText.text.getCaretPosition(),MyPanelTextArea.action.SUB);
+		}
+		else
+		{
+			panelText.newPutString(panelText.text.getSelectedText(), panelText.text.getSelectionStart(), MyPanelTextArea.action.SUB);
+		}
+	}
+	public void backspace()
+	{
+		if(panelText.text.getSelectedText() == null)
+		{
+			String str;
+			str = panelText.text.getText().substring(panelText.text.getCaretPosition() - 1, panelText.text.getCaretPosition());
+			panelText.newPutString(str,panelText.text.getCaretPosition(),MyPanelTextArea.action.SUB);
+		}
+		else
+		{
+			panelText.newPutString(panelText.text.getSelectedText(), panelText.text.getSelectionStart(), MyPanelTextArea.action.SUB);
+		}
+	}
+	
 	//text listener---
 	public void Pressed(KeyEvent event)
 	{
+		if(event.getKeyCode() == KeyEvent.VK_N && event.isControlDown())
+		{
+			fileNew();
+		}
+		if(event.getKeyCode() == KeyEvent.VK_O && event.isControlDown())
+		{
+			fileOpen();
+		}
+		if(event.getKeyCode() == KeyEvent.VK_S && event.isControlDown())
+		{
+			fileSave();
+		}
+		if(event.getKeyCode() == KeyEvent.VK_S && event.isControlDown() && event.isShiftDown())
+		{
+			fileSaveAs();
+		}
 		if(event.getKeyCode() == KeyEvent.VK_Z && event.isControlDown())
 		{
-			panelText.newGetString();
-			panelText.isChanged = true;
-			return;
+			undo();
 		}
 		if(event.getKeyCode() == KeyEvent.VK_Y && event.isControlDown())
 		{
-			panelText.newRestoreString();
-			panelText.isChanged = true;
-			return;
+			redo();
 		}
 		
 		if(event.getKeyCode() == KeyEvent.VK_X && event.isControlDown())
 		{
-			if (panelText.text.getSelectedText() != null)
-			{
-				ctrlXPressed = true;
-				cuttedText = panelText.text.getSelectedText();
-			}
+			cut();
 		}		
 		
 		if(event.getKeyCode() == KeyEvent.VK_V && event.isControlDown())
 		{
-			ctrlVPressed = true;
-			pastedTextPosition = panelText.text.getCaretPosition();
+			paste();
+		}
+		
+		if(event.getKeyCode() == KeyEvent.VK_C && event.isControlDown())
+		{
+			copy();
 		}
 		
 		if(event.getKeyCode() == KeyEvent.VK_BACK_SPACE)
 		{
-			if(panelText.text.getSelectedText() == null)
-			{
-				String str;
-				panelText.isChanged = true;
-				str = panelText.text.getText().substring(panelText.text.getCaretPosition() - 1, panelText.text.getCaretPosition());
-				panelText.newPutString(str,panelText.text.getCaretPosition(),MyPanelTextArea.action.SUB);
-			}
-			else
-			{
-				deletedText = panelText.text.getSelectedText();
-				backspacePressed = true;
-			}
-			return;
+			backspace();
 		}
 		if(event.getKeyCode() == KeyEvent.VK_DELETE)
 		{
-			if(panelText.text.getSelectedText() == null)
-			{
-				String str;
-				panelText.isChanged = true;
-				if(panelText.text.getText().length() == panelText.text.getCaretPosition()) return;
-				str = panelText.text.getText().substring(panelText.text.getCaretPosition(),panelText.text.getCaretPosition()+1);
-				panelText.newPutString(str,panelText.text.getCaretPosition(),MyPanelTextArea.action.SUB);
-			}
-			else
-			{
-				deletedText = panelText.text.getSelectedText();
-				deletePressed = true;
-			}
+			delete();
 		}
 	}
 	public void Typed(KeyEvent event)
@@ -407,53 +570,7 @@ class SimpleFrame extends JFrame implements EditorEventListener, EditorKeyEventL
 	}
 	public void Released(KeyEvent event)
 	{
-		if(ctrlXPressed)
-		{
-			panelText.newPutString(cuttedText, panelText.text.getCaretPosition(), MyPanelTextArea.action.SUB);
-			panelText.isChanged = true;
-	        ctrlXPressed = false;
-	        cuttedText = "";
-			return;
-		}
-		if(ctrlVPressed)
-		{
-			String clipboardText;
-	        Transferable trans = Toolkit.getDefaultToolkit().getSystemClipboard().getContents(null);
-	 
-	        try 
-	        {
-	            if (trans != null && trans.isDataFlavorSupported(DataFlavor.stringFlavor)) 
-	            {
-	                clipboardText = (String) trans.getTransferData(DataFlavor.stringFlavor);
-	                panelText.newPutString(clipboardText, pastedTextPosition, MyPanelTextArea.action.ADD);
-	            }
-	        } 
-	        catch (Exception e) 
-	        {
-	            e.printStackTrace();
-	        }
-			
-	        panelText.isChanged = true;
-	        ctrlVPressed = false;
-	        pastedTextPosition = 0;
-			return;
-		}
-		if(backspacePressed)
-		{
-			panelText.newPutString(deletedText, panelText.text.getCaretPosition(), MyPanelTextArea.action.SUB);
-			panelText.isChanged = true;
-	        backspacePressed = false;
-	        deletedText = "";
-			return;
-		}
-		if(deletePressed)
-		{
-			panelText.newPutString(deletedText, panelText.text.getCaretPosition(), MyPanelTextArea.action.SUB);
-			panelText.isChanged = true;
-	        deletePressed = false;
-	        deletedText = "";
-			return;
-		}
+
 	}
 	//window listener---
 	public void Activated(WindowEvent e) 
@@ -485,60 +602,14 @@ class SimpleFrame extends JFrame implements EditorEventListener, EditorKeyEventL
         
 	}
 	
-}
-/*
-class MyPanelButtonArea extends JPanel
-{
-	private static final long serialVersionUID = 1L;
-	
-	public MyPanelButtonArea(final EditorEventListener listener)
+	public void lostOwnership(Clipboard cb, Transferable trans) 
 	{
-		JButton ButtonNew = new JButton("New");
-		ButtonNew.addActionListener(new ActionListener()
-			{
-				public void actionPerformed(ActionEvent e)
-				{
-					listener.fileNew();
-				}
-			}
-		);
-		add(ButtonNew);
+		// TODO Auto-generated method stub
 		
-		JButton ButtonOpen = new JButton("Open");
-		ButtonOpen.addActionListener(new ActionListener()
-			{
-				public void actionPerformed(ActionEvent e)
-				{
-					listener.fileOpen();
-				}
-			}
-		);
-		add(ButtonOpen);
-		
-		JButton ButtonSave = new JButton("Save");
-		ButtonSave.addActionListener(new ActionListener()
-			{
-				public void actionPerformed(ActionEvent e)
-				{
-					listener.fileSave();
-				}
-			}
-		);
-		add(ButtonSave);
-		
-		JButton ButtonExit = new JButton("Exit");
-		ButtonExit.addActionListener(new ActionListener()
-			{
-				public void actionPerformed(ActionEvent e)
-				{
-					listener.exit();
-				}
-			}
-		);
-		add(ButtonExit);
 	}
+	
 }
-*/
+
 
 class MyPanelTextArea extends JPanel
 {
@@ -550,9 +621,11 @@ class MyPanelTextArea extends JPanel
 	public ArrayList<actionText> actionList = new ArrayList<actionText>();
 	public enum action {ADD, SUB};
 	Timer autosave;
+	private SimpleFrame mainFrame;
 	
 	public MyPanelTextArea(final SimpleFrame frame, final EditorKeyEventListener listener )
 	{
+		mainFrame = frame;
 		text = new JEditorPane();
 		text.addKeyListener(new KeyListener()
 		{
@@ -584,7 +657,14 @@ class MyPanelTextArea extends JPanel
 					PrintWriter out;
 					try 
 					{
-						out = new PrintWriter(new FileWriter(frame.fileName));
+						if(frame.isFileNameSetted)
+						{
+							out = new PrintWriter(new FileWriter(frame.fileName));
+						}
+						else 
+						{
+							out = new PrintWriter(new FileWriter(frame.tempFileName));
+						}
 						String str = frame.getMyPanelTextArea().text.getText();
 						out.print(str);
 						out.close();
@@ -612,6 +692,8 @@ class MyPanelTextArea extends JPanel
 		
 		actionList.add(new actionText(str, position, type));
 		indexAction++;
+		isChanged = true;
+		mainFrame.setTitle("Text Editor - " + mainFrame.fileName + " *");
 	}
 	
 	public void newGetString()
@@ -619,52 +701,46 @@ class MyPanelTextArea extends JPanel
 		if (indexAction <= 0) return;
 		actionText a = actionList.get(indexAction-1);
 		String temp = text.getText();
+		text.setCaretPosition(a.position);
+		indexAction--;
+		isChanged = true;
+		mainFrame.setTitle("Text Editor - " + mainFrame.fileName + " *");
 		if(a.actionType == action.ADD)
 		{
-			String tempString1;
-			String tempString2;
 			if(a.position == 0)
 			{
-				tempString1 = "";
+				text.setText(temp.substring(a.str.length(), temp.length()));
+				return;
 			}
-			else
+			if(a.position > 0 && a.position < temp.length())
 			{
-				tempString1 = temp.substring(0,a.position);
+				text.setText(temp.substring(0, a.position) + temp.substring(a.position + a.str.length(), temp.length()));
+				return;
 			}
-			if ((a.position + a.str.length() == temp.length())&& (a.position != 0))
+			if(a.position == temp.length())
 			{
-				text.setText(tempString1);
-			}
-			else
-			{
-				tempString2 = temp.substring(a.position + a.str.length(), temp.length());
-				text.setText(tempString1 + tempString2);
+				text.setText(temp.substring(0, a.position));
+				return;
 			}
 		}
 		if(a.actionType == action.SUB)
 		{
-			String tempString1;
-			String tempString2;
 			if(a.position == 0)
 			{
-				tempString1 = "";
+				text.setText(a.str + temp);
+				return;
 			}
-			else
+			if(a.position > 0 && a.position < temp.length())
 			{
-				tempString1 = temp.substring(0,a.position) + a.str;
+				text.setText(temp.substring(0, a.position) + a.str + temp.substring(a.position, temp.length()));
+				return;
 			}
-			if((a.position + a.str.length() == temp.length()) && (a.position != 0))
+			if(a.position == temp.length())
 			{
-				tempString2 = a.str;
+				text.setText(temp+a.str);
+				return;
 			}
-			else
-			{
-				tempString2 = temp.substring(a.position, temp.length());
-			}
-			text.setText(tempString1 + tempString2);
 		}
-		text.setCaretPosition(a.position);
-		indexAction--;
 	}
 	
 	public void newRestoreString()
@@ -673,57 +749,47 @@ class MyPanelTextArea extends JPanel
 		actionText a = actionList.get(indexAction);
 		String temp = text.getText();
 		int caretaPosition = 0;
-		
+		caretaPosition = a.position + a.str.length();
+		indexAction++;
+		text.setCaretPosition(caretaPosition);
+		isChanged = true;
+		mainFrame.setTitle("Text Editor - " + mainFrame.fileName + " *");
 		if(a.actionType == action.ADD)
 		{
-			String tempString1;
-			String tempString2;
-			
 			if(a.position == 0)
 			{
-				tempString1 = a.str;
+				text.setText(a.str + temp);
+				return;
 			}
-			else
+			if(a.position > 0 && a.position < temp.length())
 			{
-				tempString1 = temp.substring(0,a.position) + a.str;
-			}
-			if ((a.position == temp.length()) && (a.position != 0))
-			{
-				tempString2 = "";
-			}
-			else
-			{
-				tempString2 = temp.substring(a.position, temp.length());
-			}
-			text.setText(tempString1 + tempString2);
-			caretaPosition = tempString1.length();
-		}
-		if(a.actionType == action.SUB)
-		{
-			String tempString1;
-			String tempString2;
-			if(a.position == 0)
-			{
-				tempString1 = "";
-			}
-			else
-			{
-				tempString1 = temp.substring(0,a.position);
+				text.setText(temp.substring(0, a.position));
+				return;
 			}
 			if(a.position == temp.length())
 			{
-				text.setText(tempString1);
-				text.setCaretPosition(a.position);
+				text.setText(temp+a.str);
+				return;
 			}
-			else
-			{
-				tempString2 = temp.substring(a.position + a.str.length(), temp.length());
-				text.setText(tempString1 + tempString2);
-			}
-			caretaPosition = tempString1.length();
 		}
-		indexAction++;
-		text.setCaretPosition(caretaPosition);
+		if(a.actionType == action.SUB)
+		{
+			if(a.position == 0)
+			{
+				text.setText(temp.substring(a.str.length(), temp.length()));
+				return;
+			}
+			if(a.position > 0 && a.position < temp.length())
+			{
+				text.setText(temp.substring(0, a.position) + temp.substring(a.position + a.str.length(), temp.length()));
+				return;
+			}
+			if(a.position == temp.length())
+			{
+				text.setText(temp.substring(0, a.position));
+				return;
+			}
+		}
 	}
 
 	class actionText
@@ -738,7 +804,7 @@ class MyPanelTextArea extends JPanel
 			actionType = type;
 		}
 	}
-	
+
 }
 
 
@@ -784,16 +850,37 @@ public class Editor
 	    		});
 	    
 	    JMenuBar menuBar = new JMenuBar();
+	    
 	    JMenu fileMenu = new JMenu("File");
-	    JMenuItem newFile = new JMenuItem("New file");
+	    
+	    JMenuItem newFile = new JMenuItem("New file                      Ctrl+N");
 	    fileMenu.add(newFile);
-	    JMenuItem openFile = new JMenuItem("Open file");
+	    JMenuItem openFile = new JMenuItem("Open file                     Ctrl+O");
 	    fileMenu.add(openFile);
-	    JMenuItem saveFile = new JMenuItem("Save file");
+	    JMenuItem saveFile = new JMenuItem("Save file                     Ctrl+S");
 	    fileMenu.add(saveFile);
+	    JMenuItem saveAsFile = new JMenuItem("Save As file    Ctrl+Shift+S");
+	    fileMenu.add(saveAsFile);
 	    JMenuItem exit = new JMenuItem("Exit");
 	    fileMenu.add(exit);
+	    
+	    JMenu editMenu = new JMenu("Edit");
+	    
+	    JMenuItem undo = new JMenuItem("Undo      Ctrl+Z");
+	    editMenu.add(undo);
+	    JMenuItem redo = new JMenuItem("Redo      Ctrl+Y");
+	    editMenu.add(redo);
+	    final JMenuItem cut = new JMenuItem("Cut      Ctrl+X");
+	    editMenu.add(cut);
+	    JMenuItem copy = new JMenuItem("Copy      Ctrl+C");
+	    editMenu.add(copy);
+	    JMenuItem paste = new JMenuItem("Paste      Ctrl+V");
+	    editMenu.add(paste);
+	    JMenuItem delete = new JMenuItem("Delete      Delete");
+	    editMenu.add(delete);
+	    	        
 	    menuBar.add(fileMenu);
+	    menuBar.add(editMenu);
 	    frame.setJMenuBar(menuBar);
 	    
 	    newFile.addActionListener(new ActionListener()
@@ -821,6 +908,14 @@ public class Editor
 			}
 	    	
 	    });
+	    saveAsFile.addActionListener(new ActionListener()
+	    {
+			public void actionPerformed(ActionEvent e) 
+			{
+				frame.fileSaveAs();
+			}
+	    	
+	    });
 	    exit.addActionListener(new ActionListener()
 	    {
 			public void actionPerformed(ActionEvent e)
@@ -829,7 +924,56 @@ public class Editor
 			}
 	    	
 	    });
-
+	    
+	    undo.addActionListener(new ActionListener()
+	    {
+			public void actionPerformed(ActionEvent e)
+			{
+				frame.undo();		
+			}
+	    	
+	    });
+	  	redo.addActionListener(new ActionListener()
+	    {
+			public void actionPerformed(ActionEvent e)
+			{
+				frame.redo();				
+			}
+	    	
+	    });
+	  	cut.addActionListener(new ActionListener()
+	    {
+			public void actionPerformed(ActionEvent e) 
+			{
+				frame.cut();
+			}
+			
+	    	
+	    });
+	  	copy.addActionListener(new ActionListener()
+	    {
+			public void actionPerformed(ActionEvent e)
+			{
+				frame.copy();
+			}
+	    	
+	    });
+ 	  	paste.addActionListener(new ActionListener()
+	    {
+			public void actionPerformed(ActionEvent e)
+			{
+				frame.paste();
+			}
+	    	
+	    });
+	  	delete.addActionListener(new ActionListener()
+	    {
+			public void actionPerformed(ActionEvent e)
+			{
+				frame.delete();
+			}
+	    	
+	    });
 	}
 
 }
