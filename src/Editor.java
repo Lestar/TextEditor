@@ -9,9 +9,10 @@ import java.awt.datatransfer.StringSelection;
 import java.awt.datatransfer.Transferable;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
 import java.io.BufferedReader;
@@ -30,7 +31,9 @@ import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
+import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 
 
@@ -644,7 +647,8 @@ class MyPanelTextArea extends JPanel
 	public boolean isChanged = false;
 	public ArrayList<actionText> actionList = new ArrayList<actionText>();
 	public enum action {ADD, SUB};
-	Timer autosave;
+	private Timer autosave;
+	
 	private SimpleFrame mainFrame;
 	
 	public MyPanelTextArea(final SimpleFrame frame, final EditorKeyEventListener listener )
@@ -703,6 +707,127 @@ class MyPanelTextArea extends JPanel
 			
 		});
 		autosave.start();
+		
+		
+		
+		text.addMouseListener(new MouseAdapter()
+		{
+			JPopupMenu popupMenu = new JPopupMenu();
+			JMenuItem undo = new JMenuItem("Undo");
+			JMenuItem redo = new JMenuItem("Redo");
+			JMenuItem copy = new JMenuItem("Copy");
+			JMenuItem cut = new JMenuItem("Cut");
+			JMenuItem paste = new JMenuItem("Paste");
+			JMenuItem selectAll = new JMenuItem("Select All");
+			@SuppressWarnings("null")
+			public void mouseClicked(MouseEvent event) 
+			{
+				undo.addActionListener(new ActionListener()
+				{
+					public void actionPerformed(ActionEvent e) 
+					{
+						mainFrame.undo();				
+					}
+					
+				});
+				
+				redo.addActionListener(new ActionListener()
+				{
+					public void actionPerformed(ActionEvent e) 
+					{
+						mainFrame.redo();				
+					}
+					
+				});
+				
+				copy.addActionListener(new ActionListener()
+				{
+					public void actionPerformed(ActionEvent e) 
+					{
+						mainFrame.copy();				
+					}
+					
+				});
+				
+				cut.addActionListener(new ActionListener()
+				{
+					public void actionPerformed(ActionEvent e) 
+					{
+						mainFrame.cut();				
+					}
+					
+				});
+				
+				paste.addActionListener(new ActionListener()
+				{
+					public void actionPerformed(ActionEvent e) 
+					{
+						mainFrame.paste(e);				
+					}
+					
+				});
+				
+				selectAll.addActionListener(new ActionListener()
+				{
+					public void actionPerformed(ActionEvent e) 
+					{
+						mainFrame.getMyPanelTextArea().text.setSelectionStart(0);
+						mainFrame.getMyPanelTextArea().text.setSelectionEnd(frame.getMyPanelTextArea().text.getText().length());				
+					}
+					
+				});
+				
+				popupMenu.add(undo);
+				popupMenu.add(redo);
+				popupMenu.add(copy);
+				popupMenu.add(cut);
+				popupMenu.add(paste);
+				popupMenu.add(selectAll);
+				if (SwingUtilities.isRightMouseButton(event))
+				{
+					Transferable trans = Toolkit.getDefaultToolkit().getSystemClipboard().getContents(null);
+					if (trans == null && !trans.isDataFlavorSupported(DataFlavor.stringFlavor)) 
+					{
+						paste.setEnabled(false);
+					}
+					else
+					{
+						paste.setEnabled(true);
+					}
+					
+					if(actionList.isEmpty())
+					{
+						undo.setEnabled(false);
+					}
+					else
+					{
+						undo.setEnabled(true);
+					}
+					
+					if(actionList.isEmpty() || (!actionList.isEmpty() && indexAction == actionList.size()-1))
+					{
+						redo.setEnabled(false);
+					}
+					else
+					{
+						redo.setEnabled(true);
+					}
+					
+					if(text.getSelectedText() == null)
+					{
+						copy.setEnabled(false);
+						cut.setEnabled(false);
+					}
+					else
+					{
+						copy.setEnabled(true);
+						cut.setEnabled(true);
+					}
+					popupMenu.show(text, event.getX(), event.getY());
+				}
+			}
+		});
+		
 	}
 	
 	public void newPutString(String str, int position, action type)
