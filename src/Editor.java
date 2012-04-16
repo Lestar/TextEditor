@@ -2,6 +2,7 @@ import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.Toolkit;
 import java.awt.datatransfer.Clipboard;
+import java.awt.datatransfer.ClipboardOwner;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.StringSelection;
 import java.awt.datatransfer.Transferable;
@@ -386,6 +387,10 @@ class fileEvents implements EditorEventListener
 						e.printStackTrace();
 					}
 				}
+				else
+				{
+					return;
+				}
 			}
 		}
 		else
@@ -396,7 +401,7 @@ class fileEvents implements EditorEventListener
 	}
 }
 
-class keyActions
+class keyActions implements ClipboardOwner
 {
 		public void undo(MyPanelTextArea panelText)
 		{
@@ -412,11 +417,12 @@ class keyActions
 			{
 				StringSelection stringSelection = new StringSelection( panelText.getText().getSelectedText() );
 			    Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
-			    clipboard.setContents(stringSelection, (java.awt.datatransfer.ClipboardOwner) this );
+			    clipboard.setContents(stringSelection,  this );
 			}
 		}
 		public void cut(MyPanelTextArea panelText)
 		{
+			panelText.setAction(false);
 			int cp;
 			if (panelText.getText().getSelectedText() != null)
 			{
@@ -442,9 +448,11 @@ class keyActions
 					return;
 				}
 			}
+			panelText.setAction(true);
 		}
 		public void paste(MyPanelTextArea panelText)
 		{
+			panelText.setAction(false);
 			String clipboardText = null;
 	        Transferable trans = Toolkit.getDefaultToolkit().getSystemClipboard().getContents(null);
 	 
@@ -459,20 +467,24 @@ class keyActions
 	        catch (Exception e) 
 	        {
 	            e.printStackTrace();
+	            panelText.setAction(true);
 	        }
 	        if(panelText.getText().getCaretPosition() == 0)
 			{
 	        	panelText.getText().setText(clipboardText + panelText.getText().getText());
+	        	panelText.setAction(true);
 	        	return;
 			}
 			if(panelText.getText().getCaretPosition() > 0 && panelText.getText().getCaretPosition() < panelText.getText().getText().length())
 			{
 				panelText.getText().setText(panelText.getText().getText().substring(0, panelText.getText().getCaretPosition()) + clipboardText + panelText.getText().getText().substring(panelText.getText().getCaretPosition(),panelText.getText().getText().length()));
+				panelText.setAction(true);
 				return;
 			}
 			if(panelText.getText().getCaretPosition() == panelText.getText().getText().length())
 			{
 				panelText.getText().setText(panelText.getText().getText() + clipboardText);
+				panelText.setAction(true);
 				return;
 			}
 		}
@@ -480,15 +492,27 @@ class keyActions
 		{
 			if(panelText.getText().getSelectedText() != null)
 			{
+				panelText.setAction(false);
+				panelText.getText().setText(panelText.getText().getText().substring(0, panelText.getText().getSelectionStart()) + panelText.getText().getText().substring(panelText.getText().getSelectionEnd(), panelText.getText().getText().length()));
 				panelText.getList().newPutString(panelText.getText().getSelectedText(), panelText.getText().getSelectionStart(), actionsHistory.action.SUB);
+				panelText.setAction(true);
 			}
 		}
 		public void backspace(MyPanelTextArea panelText)
 		{
 			if(panelText.getText().getSelectedText() != null)
 			{
+				panelText.setAction(false);
+				panelText.getText().setText(panelText.getText().getText().substring(0, panelText.getText().getSelectionStart()) + panelText.getText().getText().substring(panelText.getText().getSelectionEnd(), panelText.getText().getText().length()));
 				panelText.getList().newPutString(panelText.getText().getSelectedText(), panelText.getText().getSelectionStart(), actionsHistory.action.SUB);
+				panelText.setAction(true);
 			}
+		}
+		
+		public void lostOwnership(Clipboard arg0, Transferable arg1) 
+		{
+			// TODO Auto-generated method stub
+			
 		}
 		
 }
